@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pemindai Barcode ke Excel</title>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#eef2ee;--panel:#fff;--ink:#17261f;--mute:#5d6e65;--line:#cfd9d2;--accent:#0f6b4a;--accent-ink:#fff;--warn:#b4442a}
+@media (prefers-color-scheme:dark){:root{--bg:#101814;--panel:#17221c;--ink:#e6efe9;--mute:#93a69b;--line:#2b3b32;--accent:#4cc38a;--accent-ink:#06140d;--warn:#ff8a6b}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:20px;display:grid;gap:16px;grid-template-columns:minmax(0,380px) minmax(0,1fr)}
+@media(max-width:800px){main{grid-template-columns:1fr}}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--mute);margin:0 0 4px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.view{position:relative;aspect-ratio:1;background:#000;border-radius:8px;overflow:hidden}
+video{width:100%;height:100%;object-fit:cover}
+.frame{position:absolute;inset:18%;border:3px solid var(--accent);border-radius:12px;pointer-events:none}
+.flash{position:absolute;inset:0;background:var(--accent);opacity:0;pointer-events:none;transition:opacity .4s}
+.flash.on{opacity:.45;transition:none}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+button,select,input{font:inherit}
+button{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:600}
+button.alt{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+input[type=text]{flex:1;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+label.chk{display:flex;gap:6px;align-items:center;color:var(--mute)}
+#status{min-height:22px;margin-top:8px;color:var(--mute)}
+#status.warn{color:var(--warn)}
+.tw{overflow-x:auto;max-height:60vh;overflow-y:auto}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{position:sticky;top:0;background:var(--panel);color:var(--mute);font-weight:600}
+td.v{word-break:break-all}
+td button{padding:3px 9px;font-size:13px}
+.empty{color:var(--mute);padding:24px 6px}
+.cnt{font-weight:600}
+</style>
+</head>
+<body>
+<main>
+<section class="panel">
+  <h1>Pemindai Barcode ke Excel</h1>
+  <p class="sub">Arahkan kamera ke barcode, atau gunakan scanner USB/Bluetooth di kolom input.</p>
+  <div class="view"><video id="v" playsinline muted></video><div class="frame"></div><div class="flash" id="fl"></div></div>
+  <div class="row">
+    <button id="cam">Mulai kamera</button>
+    <select id="dev" aria-label="Pilih kamera" style="display:none"></select>
+  </div>
+  <div class="row">
+    <input type="text" id="man" placeholder="Fokus di sini untuk scanner USB, lalu Enter" aria-label="Input scanner">
+  </div>
+  <div class="row">
+    <label class="chk"><input type="checkbox" id="dup" checked> Tolak data kembar</label>
+    <label class="chk"><input type="checkbox" id="beep" checked> Bunyi saat berhasil</label>
+  </div>
+  <div id="status" role="status"></div>
+</section>
+
+<section class="panel">
+  <div class="row" style="margin-top:0;justify-content:space-between;align-items:center">
+    <span><span class="cnt" id="count">0</span> data tercatat</span>
+    <div class="row" style="margin:0">
+      <button id="link" class="alt">Hubungkan ke file Excel</button>
+      <button id="dl">Unduh .xlsx</button>
+      <button id="clr" class="alt">Kosongkan</button>
+    </div>
+  </div>
+  <div id="linked" class="sub" style="margin-top:6px"></div>
+  <div class="tw" style="margin-top:8px">
+    <table><thead><tr><th>#</th><th>Waktu</th><th>Isi barcode</th><th></th></tr></thead><tbody id="body"></tbody></table>
+    <div class="empty" id="empty">Belum ada data. Pindai barcode pertama.</div>
+  </div>
+</section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+let rows=[],handle=null,stream=null,timer=null,last="",lastT=0,saving=false;
+const KEY="qr-scan-rows";
+try{rows=JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){}
+
+function say(t,warn){const s=$("status");s.textContent=t;s.className=warn?"warn":""}
+function fmt(d){return new Date(d).toLocaleString("id-ID")}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(rows))}catch(e){}}
+
+function render(){
+  $("count").textContent=rows.length;
+  $("empty").style.display=rows.length?"none":"block";
+  const b=$("body");b.innerHTML="";
+  rows.slice().reverse().forEach((r,i)=>{
+    const idx=rows.length-i,tr=document.createElement("tr");
+    const c=(t,cls)=>{const td=document.createElement("td");td.textContent=t;if(cls)td.className=cls;tr.appendChild(td);return td};
+    c(idx);c(fmt(r.t));c(r.v,"v");
+    const td=document.createElement("td"),x=document.createElement("button");
+    x.className="alt";x.textContent="Hapus";x.onclick=()=>{rows.splice(idx-1,1);after()};
+    td.appendChild(x);tr.appendChild(td);b.appendChild(tr);
+  });
+}
+
+function workbook(){
+  const data=[["No","Waktu","Isi barcode"],...rows.map((r,i)=>[i+1,fmt(r.t),r.v])];
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws["!cols"]=[{wch:6},{wch:22},{wch:60}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Hasil Scan");return wb;
+}
+
+async function saveLinked(){
+  if(!handle||saving)return;saving=true;
+  try{
+    const out=XLSX.write(workbook(),{bookType:"xlsx",type:"array"});
+    const w=await handle.createWritable();await w.write(out);await w.close();
+    $("linked").textContent="Tersimpan otomatis ke "+handle.name+" ("+new Date().toLocaleTimeString("id-ID")+")";
+  }catch(e){
+    $("linked").textContent="Gagal menyimpan ke file. Tutup file di Excel lalu pindai lagi.";
+  }
+  saving=false;
+}
+
+function after(){persist();render();saveLinked()}
+
+function beep(){
+  if(!$("beep").checked)return;
+  try{const a=new AudioContext(),o=a.createOscillator();o.frequency.value=880;o.connect(a.destination);o.start();o.stop(a.currentTime+.12)}catch(e){}
+}
+
+function add(v){
+  v=(v||"").trim();if(!v)return;
+  const now=Date.now();
+  if(v===last&&now-lastT<2500)return;
+  last=v;lastT=now;
+  if($("dup").checked&&rows.some(r=>r.v===v)){say("Sudah tercatat: "+v,true);return}
+  rows.push({t:now,v});beep();
+  const f=$("fl");f.classList.add("on");setTimeout(()=>f.classList.remove("on"),60);
+  say("Tercatat: "+v);after();
+}
+
+async function startCam(id){
+  stopCam();
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:Object.assign({width:{ideal:1280},height:{ideal:720}},id?{deviceId:{exact:id}}:{facingMode:"environment"})});
+  }catch(e){say("Kamera tidak bisa dibuka. Izinkan akses kamera dan buka halaman lewat https atau localhost.",true);return}
+  const v=$("v");v.srcObject=stream;await v.play();
+  $("cam").textContent="Matikan kamera";
+  const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="videoinput");
+  if(devs.length>1){
+    const s=$("dev");s.style.display="";s.innerHTML="";
+    devs.forEach((d,i)=>{const o=new Option(d.label||"Kamera "+(i+1),d.deviceId);s.add(o)});
+    const cur=stream.getVideoTracks()[0].getSettings().deviceId;if(cur)s.value=cur;
+  }
+  const cv=document.createElement("canvas"),cx=cv.getContext("2d",{willReadFrequently:true});
+  const fmts=["ean_13","ean_8","upc_a","upc_e","code_128","code_39","code_93","itf","codabar","qr_code"];
+  let bd=null,zx=null;
+  if("BarcodeDetector" in window){try{bd=new BarcodeDetector({formats:fmts})}catch(e){bd=null}}
+  const initZx=()=>{
+    if(zx||!window.ZXing)return;
+    const h=new Map();h.set(ZXing.DecodeHintType.TRY_HARDER,true);
+    zx=new ZXing.MultiFormatReader();zx.setHints(h);
+  };
+  if(!bd)initZx();
+  let busy=false;
+  timer=setInterval(async()=>{
+    if(busy||v.videoWidth===0)return;busy=true;
+    try{
+      if(bd){
+        try{const r=await bd.detect(v);if(r.length)add(r[0].rawValue)}
+        catch(e){bd=null;initZx()}
+      }else if(zx){
+        const s=Math.min(1,1280/v.videoWidth);cv.width=v.videoWidth*s;cv.height=v.videoHeight*s;
+        cx.drawImage(v,0,0,cv.width,cv.height);
+        try{
+          const bmp=new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(cv)));
+          add(zx.decode(bmp).getText());
+        }catch(e){}
+      }
+    }catch(e){}
+    busy=false;
+  },150);
+  say("Kamera aktif. Arahkan ke barcode.");
+}
+function stopCam(){
+  clearInterval(timer);
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  $("v").srcObject=null;$("cam").textContent="Mulai kamera";
+}
+
+$("cam").onclick=()=>stream?stopCam():startCam();
+$("dev").onchange=e=>startCam(e.target.value);
+$("man").addEventListener("keydown",e=>{if(e.key==="Enter"){add(e.target.value);e.target.value=""}});
+$("dl").onclick=()=>{
+  if(!rows.length){say("Belum ada data untuk diunduh.",true);return}
+  XLSX.writeFile(workbook(),"hasil-scan-"+new Date().toISOString().slice(0,10)+".xlsx");
+};
+$("clr").onclick=()=>{if(rows.length&&confirm("Hapus semua data scan?")){rows=[];last="";after()}};
+$("link").onclick=async()=>{
+  if(!window.showSaveFilePicker){say("Browser ini belum mendukung simpan otomatis. Gunakan Chrome atau Edge di komputer, atau pakai tombol Unduh .xlsx.",true);return}
+  try{
+    handle=await showSaveFilePicker({suggestedName:"hasil-scan.xlsx",types:[{description:"Excel",accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"]}}]});
+    await saveLinked();say("File terhubung. Setiap scan baru langsung ditulis ke Excel.");
+  }catch(e){}
+};
+
+render();
+if(rows.length)say("Data sebelumnya dipulihkan dari browser.");
+</script>
+</body>
+</html>
