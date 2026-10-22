@@ -1,0 +1,430 @@
+/* ==========================================================================
+   Variabel Warna & Tema (Light & Dark Mode)
+   ========================================================================== */
+:root {
+  --bg: #f3f6f4;
+  --panel: #ffffff;
+  --ink: #14231b;
+  --mute: #5f7167;
+  --line: #dbe4dd;
+  --accent: #0f6b4a;
+  --accent-light: #e8f5ee;
+  --accent-ink: #ffffff;
+  --warn: #c53c1f;
+  --warn-light: #fdeee9;
+  --radius: 12px;
+  --shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1511;
+    --panel: #16211a;
+    --ink: #eaf3ed;
+    --mute: #8fa397;
+    --line: #24352b;
+    --accent: #3ec88b;
+    --accent-light: #0d281c;
+    --accent-ink: #05140d;
+    --warn: #ff7e5f;
+    --warn-light: #2d1611;
+    --shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* ==========================================================================
+   Tata Letak Dasar Mobile-First
+   ========================================================================== */
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  min-height: 100vh;
+}
+
+/* Container utama difokuskan seukuran layar smartphone */
+main {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 12px 14px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Header Aplikasi */
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 2px 2px;
+}
+
+.app-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+h1 {
+  font-size: 19px;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.sub {
+  color: var(--mute);
+  font-size: 13px;
+  margin: 2px 0 0;
+}
+
+/* Panel Card Mobile */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+/* ==========================================================================
+   Kamera Scanner Mobile & Animasi Laser
+   ========================================================================== */
+.view {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: #000;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.frame {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 20%;
+  bottom: 20%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Laser pemindai bergerak */
+.frame::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: scan-laser 2s infinite ease-in-out;
+}
+
+@keyframes scan-laser {
+  0% { top: 5%; opacity: 0.3; }
+  50% { top: 95%; opacity: 1; }
+  100% { top: 5%; opacity: 0.3; }
+}
+
+.flash {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.flash.on {
+  opacity: 0.5;
+  transition: none;
+}
+
+/* ==========================================================================
+   Kontrol, Form, & Tombol Ramah Sentuhan (Touch Target)
+   ========================================================================== */
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  align-items: center;
+}
+
+/* Mengatur ukuran tombol & input agar nyaman ditekan jempol (min tinggi 44px) */
+button,
+select,
+input {
+  font-family: inherit;
+  font-size: 15px;
+  min-height: 44px;
+}
+
+button {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform 0.1s, opacity 0.15s;
+}
+
+button:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+
+button.alt {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+button.btn-block {
+  width: 100%;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Font input 16px mencegah auto-zoom di browser iOS Safari */
+input[type="text"],
+input[type="number"],
+select {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  font-size: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+input[type="number"] {
+  flex: 0 0 85px;
+  text-align: center;
+  font-weight: 700;
+}
+
+/* Grid aksi tombol Excel 2x2 khusus mobile */
+.grid-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.grid-actions button {
+  padding: 10px 8px;
+  font-size: 13px;
+  text-align: center;
+  white-space: normal;
+  line-height: 1.25;
+}
+
+/* Pilihan Checkbox */
+.chk-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 4px 0;
+}
+
+label.chk {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--ink);
+  font-size: 13.5px;
+  cursor: pointer;
+  user-select: none;
+}
+
+label.chk input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  accent-color: var(--accent);
+  margin: 0;
+}
+
+/* Baris Notifikasi / Status */
+#status {
+  min-height: 20px;
+  margin-top: 10px;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-weight: 500;
+  display: none;
+}
+
+#status:not(:empty) {
+  display: block;
+}
+
+#status.warn {
+  background: var(--warn-light);
+  color: var(--warn);
+}
+
+/* ==========================================================================
+   Kartu Konfirmasi / Pemetaan Barcode (#card)
+   ========================================================================== */
+#card {
+  margin-top: 12px;
+}
+
+.cardbox {
+  border: 2px solid var(--accent);
+  background: var(--panel);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.cardbox p {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.badge-bc {
+  display: inline-block;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--accent);
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  word-break: break-all;
+}
+
+.new-box {
+  background: var(--bg);
+  border: 1px dashed var(--accent);
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 10px;
+}
+
+.res {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.res button {
+  text-align: left;
+  justify-content: flex-start;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+small {
+  color: var(--mute);
+  font-size: 12px;
+}
+
+/* ==========================================================================
+   Tabel Riwayat Scan Mobile
+   ========================================================================== */
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  margin-bottom: 6px;
+}
+
+.table-header h2 {
+  font-size: 15px;
+  margin: 0;
+  font-weight: 600;
+}
+
+.tw {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-height: 50vh;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  color: var(--mute);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  z-index: 1;
+}
+
+td button {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.empty {
+  color: var(--mute);
+  text-align: center;
+  padding: 24px 12px;
+  font-size: 13.5px;
+}
