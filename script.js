@@ -497,39 +497,10 @@ function scan(v) {
  * FUNGSI-FUNGSI PENGOLAHAN FILE EXCEL (IMPORT & EXPORT)
  * ==========================================================================
  */
-
-/**
- * Memeriksa apakah suatu nilai barcode valid sebagai barcode fisik barang,
- * dan BUKAN kode internal toko (misalnya kode awalan "BRG..." atau sama persis dengan kode_barang).
- * @param {string} bc - Nilai barcode dari Excel atau input scan.
- * @param {string} [kode] - Nilai kode_barang internal (misal: "BRG1").
- * @returns {boolean} True jika format valid sebagai barcode fisik.
- */
-function isValidPhysicalBarcode(bc, kode) {
-  if (!bc) return false;
-  const s = String(bc).trim();
-  if (
-    !s ||
-    s === "-" ||
-    s.toLowerCase() === "null" ||
-    s.toLowerCase() === "undefined"
-  )
-    return false;
-
-  // Jika berupa kode internal "BRG..." (case-insensitive)
-  if (/^brg[-_\s]?\d+/i.test(s)) return false;
-
-  // Jika sama persis dengan kode_barang internal
-  if (kode && s.toLowerCase() === String(kode).trim().toLowerCase())
-    return false;
-
-  return true;
-}
-
 /**
  * Membaca dan mengimpor file Excel master barang (.xlsx / .xls).
  * Mengurai kolom ID, kategori, supplier, satuan, kode barang, nama barang, serta relasi barcode jika tersedia.
- * Memvalidasi apakah barcode yang ada di Excel adalah barcode fisik asli atau format kode toko internal.
+ * Semua barcode yang ada di kolom "barcode" langsung diterima dan dipetakan ke ID barang.
  * @param {File} f - Objek file Excel dari elemen input type="file".
  */
 async function importMaster(f) {
@@ -558,43 +529,34 @@ async function importMaster(f) {
         nama: String(r.nama_barang),
       }));
 
+    // Muat semua barcode dari kolom "barcode" di Excel, langsung dipetakan ke ID barang
     if ("barcode" in rows[0]) {
       S.map = {};
-      let validBcCount = 0;
-      let ignoredCount = 0;
+      let bcCount = 0;
 
       rows.forEach((r) => {
-        const raw = String(r.barcode || "").trim();
-        if (!raw) return;
+        // Konversi ke string untuk menangani barcode angka dari Excel
+        const raw = String(r.barcode ?? "").trim();
+        if (!raw || raw === "undefined" || raw === "null") return;
 
         raw
           .split("|")
           .map((x) => x.trim())
           .filter(Boolean)
           .forEach((b) => {
-            if (isValidPhysicalBarcode(b, r.kode_barang)) {
-              S.map[b] = Number(r.id);
-              validBcCount++;
-            } else {
-              ignoredCount++;
-            }
+            S.map[b] = Number(r.id);
+            bcCount++;
           });
       });
 
       index();
-      let msg =
+      say(
         "Master dimuat: " +
-        S.master.length +
-        " barang (" +
-        validBcCount +
-        " barcode fisik valid).";
-      if (ignoredCount > 0) {
-        msg +=
-          " " +
-          ignoredCount +
-          " data format 'BRG'/internal diabaikan agar bisa di-scan ulang.";
-      }
-      say(msg);
+          S.master.length +
+          " barang, " +
+          bcCount +
+          " barcode terdaftar."
+      );
       after();
       return;
     }
